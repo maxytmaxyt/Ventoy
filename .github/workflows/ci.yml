@@ -28,7 +28,7 @@ jobs:
           libssl-dev libdevmapper-dev libfuse-dev libglib2.0-dev libpixman-1-dev \
           libsdl2-dev libvte-2.91-dev libbrlapi-dev libnm-dev
 
-    - name: Download cross-compilation toolchains
+    - name: Download cross-compilation toolchains to /opt
       run: |
         sudo mkdir -p /opt
         cd /opt
@@ -49,52 +49,45 @@ jobs:
             echo "WARNING: $fname not available"
           fi
         done
-        # Rename musl-cross output
         if [ -d /opt/output ]; then sudo mv /opt/output /opt/mips64el-linux-musl-gcc730; fi
         echo "=== Toolchains in /opt ==="
         ls -la /opt/ | grep -E 'gcc|uclibc|mips|musl' || true
 
-    - name: Download third-party sources
+    - name: Download third-party sources into repo
       run: |
-        sudo mkdir -p /ventoy/DOC /ventoy/GRUB2 /ventoy/EDK2
-        cd /ventoy/DOC
-        sudo wget -q https://github.com/ventoy/vtoytoolchain/releases/download/1.0/dietlibc-0.34.tar.xz -O dietlibc-0.34.tar.xz 2>/dev/null || echo "WARNING: dietlibc not available"
-        sudo wget -q https://musl.libc.org/releases/musl-1.2.1.tar.gz -O musl-1.2.1.tar.gz 2>/dev/null || echo "WARNING: musl not available"
-        cd /ventoy/GRUB2
-        sudo wget -q https://ftp.gnu.org/gnu/grub/grub-2.04.tar.xz -O grub-2.04.tar.xz 2>/dev/null || echo "WARNING: grub source not available"
-        cd /ventoy/EDK2
-        sudo wget -q -O edk2-edk2-stable201911.zip https://codeload.github.com/tianocore/edk2/zip/edk2-stable201911 2>/dev/null || echo "WARNING: edk2 not available"
+        mkdir -p DOC GRUB2 EDK2
+        cd DOC
+        wget -q https://github.com/ventoy/vtoytoolchain/releases/download/1.0/dietlibc-0.34.tar.xz -O dietlibc-0.34.tar.xz 2>/dev/null || echo "WARNING: dietlibc not available"
+        wget -q https://musl.libc.org/releases/musl-1.2.1.tar.gz -O musl-1.2.1.tar.gz 2>/dev/null || echo "WARNING: musl not available"
+        cd ../GRUB2
+        wget -q https://ftp.gnu.org/gnu/grub/grub-2.04.tar.xz -O grub-2.04.tar.xz 2>/dev/null || echo "WARNING: grub source not available"
+        cd ../EDK2
+        wget -q -O edk2-edk2-stable201911.zip https://codeload.github.com/tianocore/edk2/zip/edk2-stable201911 2>/dev/null || echo "WARNING: edk2 not available"
         echo "=== Downloaded sources ==="
-        ls -la /ventoy/DOC/ /ventoy/GRUB2/ /ventoy/EDK2/
+        ls -la DOC/ GRUB2/ EDK2/
 
     - name: Build musl
       run: |
-        cd /ventoy/DOC
+        cd DOC
         if [ -f musl-1.2.1.tar.gz ]; then
-          sudo tar -xf musl-1.2.1.tar.gz
+          tar -xf musl-1.2.1.tar.gz
           cd musl-1.2.1
-          sudo ./configure --prefix=/opt/musl && sudo make -j$(nproc) && sudo make install || echo "WARNING: musl build failed"
+          ./configure --prefix=/opt/musl && make -j$(nproc) && sudo make install || echo "WARNING: musl build failed"
         else
           echo "WARNING: musl source not available, skipping"
         fi
 
-    - name: Pre-build checks
+    - name: Build Ventoy
       run: |
         echo "=== Repo structure ==="
-        ls -la /ventoy/INSTALL/
-        echo "=== grub.cfg has max_yt? ==="
-        grep -c "max_yt" /ventoy/INSTALL/grub/grub.cfg || true
-        echo "=== Check key build files exist ==="
-        ls -la /ventoy/GRUB2/MOD_SRC/grub-2.04/ 2>/dev/null | head -5 || echo "GRUB2 MOD_SRC not extracted yet (will be done by buildgrub.sh)"
-        ls -la /ventoy/INSTALL/all_in_one.sh
-        ls -la /ventoy/INSTALL/ventoy_pack.sh
-
-    - name: Copy repo to /ventoy and build
-      run: |
-        sudo cp -r . /ventoy/
-        cd /ventoy/INSTALL
+        ls -la INSTALL/
+        echo "=== Check max_yt in grub.cfg ==="
+        grep -c "max_yt" INSTALL/grub/grub.cfg || true
+        echo "=== Check all_in_one.sh exists ==="
+        ls -la INSTALL/all_in_one.sh
         echo "=== Starting build ==="
-        sudo bash -x all_in_one.sh CI 2>&1 | tee /ventoy/DOC/build.log
+        cd INSTALL
+        bash -x all_in_one.sh CI 2>&1 | tee DOC/build.log
         echo "=== Build exit code: ${PIPESTATUS[0]} ==="
 
     - name: Upload artifacts
