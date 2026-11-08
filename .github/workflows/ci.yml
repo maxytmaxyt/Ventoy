@@ -22,11 +22,11 @@ jobs:
         sudo apt-get update -qq
         sudo apt-get install -y -qq \
           build-essential gcc g++ bzip2 wget curl vim rsync autogen autoconf automake libtool \
-          gettext bison binutils flex libpciaccess libusb-1.0-0-dev freetype-dev \
+          gettext bison binutils flex libpciaccess-dev libusb-1.0-0-dev libfreetype6-dev \
           gnu-efi pesign shim isc-dhcp-client grub-common grub-pc grub-efi \
           zip nasm acpica-tools zlib1g-dev liblz4-dev squashfs-tools xorriso \
           libssl-dev libdevmapper-dev libfuse-dev libglib2.0-dev libpixman-1-dev \
-          libsdl2-dev libvte-dev libbrlapi-dev libnetworkmanager-dev
+          libsdl2-dev libvte-2.91-dev libbrlapi-dev libnm-dev || true
 
     - name: Download cross-compilation toolchains
       run: |
