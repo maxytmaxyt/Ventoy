@@ -32,9 +32,22 @@ jobs:
       run: |
         sudo mkdir -p /opt
         cd /opt
-        sudo wget -q https://github.com/ventoy/vtoytoolchain/releases/download/1.0/gcc-linaro-7.4.1-2019.02-x86_64_aarch64-linux-gnu.tar.xz 2>/dev/null && sudo tar -xf gcc-linaro-7.4.1-2019.02-x86_64_aarch64-linux-gnu.tar.xz -C /opt/ || echo "WARNING: aarch64 toolchain not available"
-        sudo wget -q https://github.com/ventoy/vtoytoolchain/releases/download/1.0/aarch64--uclibc--stable-2020.08-1.tar.bz2 2>/dev/null && sudo tar -xf aarch64--uclibc--stable-2020.08-1.tar.bz2 -C /opt/ || echo "WARNING: aarch64 uclibc toolchain not available"
-        sudo wget -q https://github.com/ventoy/vtoytoolchain/releases/download/1.0/mips-loongson-gcc7.3-2019.06-29-linux-gnu.tar.gz 2>/dev/null && sudo tar -xf mips-loongson-gcc7.3-2019.06-29-linux-gnu.tar.gz -C /opt/ || echo "WARNING: mips toolchain not available"
+        for url in \
+          "https://github.com/ventoy/vtoytoolchain/releases/download/1.0/gcc-linaro-7.4.1-2019.02-x86_64_aarch64-linux-gnu.tar.xz" \
+          "https://github.com/ventoy/vtoytoolchain/releases/download/1.0/aarch64--uclibc--stable-2020.08-1.tar.bz2" \
+          "https://github.com/ventoy/vtoytoolchain/releases/download/1.0/mips-loongson-gcc7.3-2019.06-29-linux-gnu.tar.gz"; do
+          fname=$(basename "$url")
+          if sudo wget -q "$url" -O "$fname" 2>/dev/null; then
+            case "$fname" in
+              *.tar.xz) sudo tar -xf "$fname" -C /opt/ 2>/dev/null || true ;;
+              *.tar.bz2) sudo tar -xf "$fname" -C /opt/ 2>/dev/null || true ;;
+              *.tar.gz) sudo tar -xf "$fname" -C /opt/ 2>/dev/null || true ;;
+            esac
+            echo "OK: $fname downloaded"
+          else
+            echo "WARNING: $fname not available, skipping"
+          fi
+        done
 
     - name: Download additional build sources
       run: |
