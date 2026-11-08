@@ -28,37 +28,42 @@ jobs:
           libssl-dev libdevmapper-dev libfuse-dev libglib2.0-dev libpixman-1-dev \
           libsdl2-dev libvte-2.91-dev libbrlapi-dev libnm-dev
 
-    - name: Download cross-compilation toolchains (optional)
+    - name: Download cross-compilation toolchains
       run: |
         sudo mkdir -p /opt
         cd /opt
-        for url in \
-          "https://github.com/ventoy/vtoytoolchain/releases/download/1.0/gcc-linaro-7.4.1-2019.02-x86_64_aarch64-linux-gnu.tar.xz" \
-          "https://github.com/ventoy/vtoytoolchain/releases/download/1.0/aarch64--uclibc--stable-2020.08-1.tar.bz2" \
-          "https://github.com/ventoy/vtoytoolchain/releases/download/1.0/mips-loongson-gcc7.3-2019.06-29-linux-gnu.tar.gz"; do
-          fname=$(basename "$url")
-          if sudo wget -q "$url" -O "$fname" 2>/dev/null; then
-            case "$fname" in
-              *.tar.xz) sudo tar -xf "$fname" -C /opt/ 2>/dev/null || true ;;
-              *.tar.bz2) sudo tar -xf "$fname" -C /opt/ 2>/dev/null || true ;;
-              *.tar.gz) sudo tar -xf "$fname" -C /opt/ 2>/dev/null || true ;;
-            esac
-            echo "OK: $fname downloaded"
-          else
-            echo "WARNING: $fname not available, skipping"
-          fi
-        done
+        # aarch64 gcc-linaro (official Ventoy toolchain)
+        sudo wget -q https://github.com/ventoy/vtoytoolchain/releases/download/1.0/gcc-linaro-7.4.1-2019.02-x86_64_aarch64-linux-gnu.tar.xz -O gcc-linaro-7.4.1-2019.02-x86_64_aarch64-linux-gnu.tar.xz || true
+        # aarch64 uclibc (official Ventoy toolchain from bootlin)
+        sudo wget -q https://toolchains.bootlin.com/downloads/releases/toolchains/aarch64/tarballs/aarch64--uclibc--stable-2020.08-1.tar.bz2 -O aarch64--uclibc--stable-2020.08-1.tar.bz2 || true
+        # mips loongson (official Ventoy toolchain)
+        sudo wget -q https://github.com/ventoy/vtoytoolchain/releases/download/1.0/mips-loongson-gcc7.3-2019.06-29-linux-gnu.tar.gz -O mips-loongson-gcc7.3-2019.06-29-linux-gnu.tar.gz || true
+        # musl-cross-make output for mips64el
+        sudo wget -q https://github.com/ventoy/musl-cross-make/releases/download/latest/output.tar.bz2 -O output.tar.bz2 || true
+        
+        # Extract
+        sudo tar -xf gcc-linaro-7.4.1-2019.02-x86_64_aarch64-linux-gnu.tar.xz -C /opt/ 2>/dev/null || true
+        sudo tar -xf aarch64--uclibc--stable-2020.08-1.tar.bz2 -C /opt/ 2>/dev/null || true
+        sudo tar -xf mips-loongson-gcc7.3-2019.06-29-linux-gnu.tar.gz -C /opt/ 2>/dev/null || true
+        sudo tar -xf output.tar.bz2 -C /opt/ 2>/dev/null && sudo mv /opt/output /opt/mips64el-linux-musl-gcc730 2>/dev/null || true
 
-    - name: Download additional build sources
+    - name: Download third-party sources
       run: |
         sudo mkdir -p /ventoy/DOC /ventoy/GRUB2 /ventoy/EDK2
         cd /ventoy/DOC
-        sudo wget -q https://github.com/ventoy/vtoytoolchain/releases/download/1.0/dietlibc-0.34.tar.xz 2>/dev/null || echo "WARNING: dietlibc not available"
-        sudo wget -q https://github.com/ventoy/vtoytoolchain/releases/download/1.0/musl-1.2.1.tar.gz 2>/dev/null || echo "WARNING: musl not available"
+        sudo wget -q https://github.com/ventoy/vtoytoolchain/releases/download/1.0/dietlibc-0.34.tar.xz -O dietlibc-0.34.tar.xz || true
+        sudo wget -q https://musl.libc.org/releases/musl-1.2.1.tar.gz -O musl-1.2.1.tar.gz || true
         cd /ventoy/GRUB2
-        sudo wget -q https://github.com/ventoy/vtoytoolchain/releases/download/1.0/grub-2.04.tar.xz 2>/dev/null || echo "WARNING: grub source not available"
+        sudo wget -q https://ftp.gnu.org/gnu/grub/grub-2.04.tar.xz -O grub-2.04.tar.xz || true
         cd /ventoy/EDK2
-        sudo wget -q -O edk2-edk2-stable201911.zip https://codeload.github.com/tianocore/edk2/zip/edk2-stable201911 2>/dev/null || echo "WARNING: edk2 not available"
+        sudo wget -q -O edk2-edk2-stable201911.zip https://codeload.github.com/tianocore/edk2/zip/edk2-stable201911 || true
+
+    - name: Build musl (required for cross toolchain)
+      run: |
+        cd /ventoy/DOC
+        sudo tar -xf musl-1.2.1.tar.gz
+        cd musl-1.2.1
+        sudo ./configure --prefix=/opt/musl && sudo make -j$(nproc) && sudo make install || true
 
     - name: Copy repo to /ventoy and build
       run: |
