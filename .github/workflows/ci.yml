@@ -23,32 +23,29 @@ jobs:
         sudo apt-get install -y -qq \
           build-essential gcc g++ bzip2 wget curl vim rsync autogen autoconf automake libtool \
           gettext bison binutils flex libpciaccess-dev libusb-1.0-0-dev libfreetype6-dev \
-          gnu-efi pesign shim isc-dhcp-client grub-common grub-pc grub-efi \
+          gnu-efi pesign shim isc-dhcp-client \
           zip nasm acpica-tools zlib1g-dev liblz4-dev squashfs-tools xorriso \
           libssl-dev libdevmapper-dev libfuse-dev libglib2.0-dev libpixman-1-dev \
-          libsdl2-dev libvte-2.91-dev libbrlapi-dev libnm-dev || true
+          libsdl2-dev libvte-2.91-dev libbrlapi-dev libnm-dev
 
-    - name: Download cross-compilation toolchains
+    - name: Download cross-compilation toolchains (optional)
       run: |
         sudo mkdir -p /opt
         cd /opt
-        sudo wget -q https://github.com/ventoy/vtoytoolchain/releases/download/1.0/gcc-linaro-7.4.1-2019.02-x86_64_aarch64-linux-gnu.tar.xz || echo "WARNING: aarch64 toolchain download failed"
-        sudo wget -q https://github.com/ventoy/vtoytoolchain/releases/download/1.0/aarch64--uclibc--stable-2020.08-1.tar.bz2 || echo "WARNING: aarch64 uclibc toolchain download failed"
-        sudo wget -q https://github.com/ventoy/vtoytoolchain/releases/download/1.0/mips-loongson-gcc7.3-2019.06-29-linux-gnu.tar.gz || echo "WARNING: mips toolchain download failed"
-        sudo tar -xf gcc-linaro-7.4.1-2019.02-x86_64_aarch64-linux-gnu.tar.xz -C /opt/ 2>/dev/null || true
-        sudo tar -xf aarch64--uclibc--stable-2020.08-1.tar.bz2 -C /opt/ 2>/dev/null || true
-        sudo tar -xf mips-loongson-gcc7.3-2019.06-29-linux-gnu.tar.gz -C /opt/ 2>/dev/null || true
+        sudo wget -q https://github.com/ventoy/vtoytoolchain/releases/download/1.0/gcc-linaro-7.4.1-2019.02-x86_64_aarch64-linux-gnu.tar.xz 2>/dev/null && sudo tar -xf gcc-linaro-7.4.1-2019.02-x86_64_aarch64-linux-gnu.tar.xz -C /opt/ || echo "WARNING: aarch64 toolchain not available"
+        sudo wget -q https://github.com/ventoy/vtoytoolchain/releases/download/1.0/aarch64--uclibc--stable-2020.08-1.tar.bz2 2>/dev/null && sudo tar -xf aarch64--uclibc--stable-2020.08-1.tar.bz2 -C /opt/ || echo "WARNING: aarch64 uclibc toolchain not available"
+        sudo wget -q https://github.com/ventoy/vtoytoolchain/releases/download/1.0/mips-loongson-gcc7.3-2019.06-29-linux-gnu.tar.gz 2>/dev/null && sudo tar -xf mips-loongson-gcc7.3-2019.06-29-linux-gnu.tar.gz -C /opt/ || echo "WARNING: mips toolchain not available"
 
     - name: Download additional build sources
       run: |
         sudo mkdir -p /ventoy/DOC /ventoy/GRUB2 /ventoy/EDK2
         cd /ventoy/DOC
-        sudo wget -q https://github.com/ventoy/vtoytoolchain/releases/download/1.0/dietlibc-0.34.tar.xz || true
-        sudo wget -q https://github.com/ventoy/vtoytoolchain/releases/download/1.0/musl-1.2.1.tar.gz || true
+        sudo wget -q https://github.com/ventoy/vtoytoolchain/releases/download/1.0/dietlibc-0.34.tar.xz 2>/dev/null || echo "WARNING: dietlibc not available"
+        sudo wget -q https://github.com/ventoy/vtoytoolchain/releases/download/1.0/musl-1.2.1.tar.gz 2>/dev/null || echo "WARNING: musl not available"
         cd /ventoy/GRUB2
-        sudo wget -q https://github.com/ventoy/vtoytoolchain/releases/download/1.0/grub-2.04.tar.xz || true
+        sudo wget -q https://github.com/ventoy/vtoytoolchain/releases/download/1.0/grub-2.04.tar.xz 2>/dev/null || echo "WARNING: grub source not available"
         cd /ventoy/EDK2
-        sudo wget -q -O edk2-edk2-stable201911.zip https://codeload.github.com/tianocore/edk2/zip/edk2-stable201911 || true
+        sudo wget -q -O edk2-edk2-stable201911.zip https://codeload.github.com/tianocore/edk2/zip/edk2-stable201911 2>/dev/null || echo "WARNING: edk2 not available"
 
     - name: Copy repo to /ventoy and build
       run: |
