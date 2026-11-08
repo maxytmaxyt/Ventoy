@@ -13,25 +13,56 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
-    - name: Run docker compose up
-      run: docker compose up
-    - uses: actions/upload-artifact@v4
       with:
-        name: ventoy-windows
-        path: INSTALL/ventoy-*windows*
-    - uses: actions/upload-artifact@v4
+        fetch-depth: 0
+        fetch-tags: true
+
+    - name: Install build dependencies
+      run: |
+        sudo apt-get update -qq
+        sudo apt-get install -y -qq \
+          build-essential gcc g++ bzip2 wget curl vim rsync autogen autoconf automake libtool \
+          gettext bison binutils flex libpciaccess libusb-1.0-0-dev freetype-dev \
+          gnu-efi pesign shim isc-dhcp-client grub-common grub-pc grub-efi \
+          zip nasm acpica-tools zlib1g-dev liblz4-dev squashfs-tools xorriso \
+          libssl-dev libdevmapper-dev libfuse-dev libglib2.0-dev libpixman-1-dev \
+          libsdl2-dev libvte-dev libbrlapi-dev libnetworkmanager-dev
+
+    - name: Download cross-compilation toolchains
+      run: |
+        sudo mkdir -p /opt
+        cd /opt
+        sudo wget -q https://github.com/ventoy/vtoytoolchain/releases/download/1.0/gcc-linaro-7.4.1-2019.02-x86_64_aarch64-linux-gnu.tar.xz || echo "WARNING: aarch64 toolchain download failed"
+        sudo wget -q https://github.com/ventoy/vtoytoolchain/releases/download/1.0/aarch64--uclibc--stable-2020.08-1.tar.bz2 || echo "WARNING: aarch64 uclibc toolchain download failed"
+        sudo wget -q https://github.com/ventoy/vtoytoolchain/releases/download/1.0/mips-loongson-gcc7.3-2019.06-29-linux-gnu.tar.gz || echo "WARNING: mips toolchain download failed"
+        sudo tar -xf gcc-linaro-7.4.1-2019.02-x86_64_aarch64-linux-gnu.tar.xz -C /opt/ 2>/dev/null || true
+        sudo tar -xf aarch64--uclibc--stable-2020.08-1.tar.bz2 -C /opt/ 2>/dev/null || true
+        sudo tar -xf mips-loongson-gcc7.3-2019.06-29-linux-gnu.tar.gz -C /opt/ 2>/dev/null || true
+
+    - name: Download additional build sources
+      run: |
+        sudo mkdir -p /ventoy/DOC /ventoy/GRUB2 /ventoy/EDK2
+        cd /ventoy/DOC
+        sudo wget -q https://github.com/ventoy/vtoytoolchain/releases/download/1.0/dietlibc-0.34.tar.xz || true
+        sudo wget -q https://github.com/ventoy/vtoytoolchain/releases/download/1.0/musl-1.2.1.tar.gz || true
+        cd /ventoy/GRUB2
+        sudo wget -q https://github.com/ventoy/vtoytoolchain/releases/download/1.0/grub-2.04.tar.xz || true
+        cd /ventoy/EDK2
+        sudo wget -q -O edk2-edk2-stable201911.zip https://codeload.github.com/tianocore/edk2/zip/edk2-stable201911 || true
+
+    - name: Copy repo to /ventoy and build
+      run: |
+        sudo cp -r . /ventoy/
+        cd /ventoy/INSTALL
+        sudo sh all_in_one.sh CI
+
+    - name: Upload artifacts
+      if: always()
+      uses: actions/upload-artifact@v4
       with:
-        name: ventoy-linux
-        path: INSTALL/ventoy-*linux*
-    - uses: actions/upload-artifact@v4
-      with:
-        name: ventoy-livecd
-        path: INSTALL/ventoy-*livecd*
-    - uses: actions/upload-artifact@v4
-      with:
-        name: SHA256SUM
-        path: INSTALL/sha256.txt
-    - uses: actions/upload-artifact@v4
-      with:
-        name: xxx-build-log
-        path: DOC/build.log
+        name: ventoy-build-artifacts
+        path: |
+          INSTALL/ventoy-*
+          INSTALL/sha256.txt
+          DOC/build.log
+        if-no-files-found: warn
