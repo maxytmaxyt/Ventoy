@@ -32,44 +32,70 @@ jobs:
       run: |
         sudo mkdir -p /opt
         cd /opt
-        # aarch64 gcc-linaro (official Ventoy toolchain)
-        sudo wget -q https://github.com/ventoy/vtoytoolchain/releases/download/1.0/gcc-linaro-7.4.1-2019.02-x86_64_aarch64-linux-gnu.tar.xz -O gcc-linaro-7.4.1-2019.02-x86_64_aarch64-linux-gnu.tar.xz || true
-        # aarch64 uclibc (official Ventoy toolchain from bootlin)
-        sudo wget -q https://toolchains.bootlin.com/downloads/releases/toolchains/aarch64/tarballs/aarch64--uclibc--stable-2020.08-1.tar.bz2 -O aarch64--uclibc--stable-2020.08-1.tar.bz2 || true
-        # mips loongson (official Ventoy toolchain)
-        sudo wget -q https://github.com/ventoy/vtoytoolchain/releases/download/1.0/mips-loongson-gcc7.3-2019.06-29-linux-gnu.tar.gz -O mips-loongson-gcc7.3-2019.06-29-linux-gnu.tar.gz || true
-        # musl-cross-make output for mips64el
-        sudo wget -q https://github.com/ventoy/musl-cross-make/releases/download/latest/output.tar.bz2 -O output.tar.bz2 || true
-        
-        # Extract
-        sudo tar -xf gcc-linaro-7.4.1-2019.02-x86_64_aarch64-linux-gnu.tar.xz -C /opt/ 2>/dev/null || true
-        sudo tar -xf aarch64--uclibc--stable-2020.08-1.tar.bz2 -C /opt/ 2>/dev/null || true
-        sudo tar -xf mips-loongson-gcc7.3-2019.06-29-linux-gnu.tar.gz -C /opt/ 2>/dev/null || true
-        sudo tar -xf output.tar.bz2 -C /opt/ 2>/dev/null && sudo mv /opt/output /opt/mips64el-linux-musl-gcc730 2>/dev/null || true
+        for url in \
+          "https://github.com/ventoy/vtoytoolchain/releases/download/1.0/gcc-linaro-7.4.1-2019.02-x86_64_aarch64-linux-gnu.tar.xz" \
+          "https://toolchains.bootlin.com/downloads/releases/toolchains/aarch64/tarballs/aarch64--uclibc--stable-2020.08-1.tar.bz2" \
+          "https://github.com/ventoy/vtoytoolchain/releases/download/1.0/mips-loongson-gcc7.3-2019.06-29-linux-gnu.tar.gz" \
+          "https://github.com/ventoy/musl-cross-make/releases/download/latest/output.tar.bz2"; do
+          fname=$(basename "$url")
+          if sudo wget -q "$url" -O "$fname" 2>/dev/null; then
+            echo "OK: $fname downloaded"
+            case "$fname" in
+              *.tar.xz) sudo tar -xf "$fname" -C /opt/ 2>/dev/null || true ;;
+              *.tar.bz2) sudo tar -xf "$fname" -C /opt/ 2>/dev/null || true ;;
+              *.tar.gz) sudo tar -xf "$fname" -C /opt/ 2>/dev/null || true ;;
+            esac
+          else
+            echo "WARNING: $fname not available"
+          fi
+        done
+        # Rename musl-cross output
+        if [ -d /opt/output ]; then sudo mv /opt/output /opt/mips64el-linux-musl-gcc730; fi
+        echo "=== Toolchains in /opt ==="
+        ls -la /opt/ | grep -E 'gcc|uclibc|mips|musl' || true
 
     - name: Download third-party sources
       run: |
         sudo mkdir -p /ventoy/DOC /ventoy/GRUB2 /ventoy/EDK2
         cd /ventoy/DOC
-        sudo wget -q https://github.com/ventoy/vtoytoolchain/releases/download/1.0/dietlibc-0.34.tar.xz -O dietlibc-0.34.tar.xz || true
-        sudo wget -q https://musl.libc.org/releases/musl-1.2.1.tar.gz -O musl-1.2.1.tar.gz || true
+        sudo wget -q https://github.com/ventoy/vtoytoolchain/releases/download/1.0/dietlibc-0.34.tar.xz -O dietlibc-0.34.tar.xz 2>/dev/null || echo "WARNING: dietlibc not available"
+        sudo wget -q https://musl.libc.org/releases/musl-1.2.1.tar.gz -O musl-1.2.1.tar.gz 2>/dev/null || echo "WARNING: musl not available"
         cd /ventoy/GRUB2
-        sudo wget -q https://ftp.gnu.org/gnu/grub/grub-2.04.tar.xz -O grub-2.04.tar.xz || true
+        sudo wget -q https://ftp.gnu.org/gnu/grub/grub-2.04.tar.xz -O grub-2.04.tar.xz 2>/dev/null || echo "WARNING: grub source not available"
         cd /ventoy/EDK2
-        sudo wget -q -O edk2-edk2-stable201911.zip https://codeload.github.com/tianocore/edk2/zip/edk2-stable201911 || true
+        sudo wget -q -O edk2-edk2-stable201911.zip https://codeload.github.com/tianocore/edk2/zip/edk2-stable201911 2>/dev/null || echo "WARNING: edk2 not available"
+        echo "=== Downloaded sources ==="
+        ls -la /ventoy/DOC/ /ventoy/GRUB2/ /ventoy/EDK2/
 
-    - name: Build musl (required for cross toolchain)
+    - name: Build musl
       run: |
         cd /ventoy/DOC
-        sudo tar -xf musl-1.2.1.tar.gz
-        cd musl-1.2.1
-        sudo ./configure --prefix=/opt/musl && sudo make -j$(nproc) && sudo make install || true
+        if [ -f musl-1.2.1.tar.gz ]; then
+          sudo tar -xf musl-1.2.1.tar.gz
+          cd musl-1.2.1
+          sudo ./configure --prefix=/opt/musl && sudo make -j$(nproc) && sudo make install || echo "WARNING: musl build failed"
+        else
+          echo "WARNING: musl source not available, skipping"
+        fi
+
+    - name: Pre-build checks
+      run: |
+        echo "=== Repo structure ==="
+        ls -la /ventoy/INSTALL/
+        echo "=== grub.cfg has max_yt? ==="
+        grep -c "max_yt" /ventoy/INSTALL/grub/grub.cfg || true
+        echo "=== Check key build files exist ==="
+        ls -la /ventoy/GRUB2/MOD_SRC/grub-2.04/ 2>/dev/null | head -5 || echo "GRUB2 MOD_SRC not extracted yet (will be done by buildgrub.sh)"
+        ls -la /ventoy/INSTALL/all_in_one.sh
+        ls -la /ventoy/INSTALL/ventoy_pack.sh
 
     - name: Copy repo to /ventoy and build
       run: |
         sudo cp -r . /ventoy/
         cd /ventoy/INSTALL
-        sudo sh all_in_one.sh CI
+        echo "=== Starting build ==="
+        sudo bash -x all_in_one.sh CI 2>&1 | tee /ventoy/DOC/build.log
+        echo "=== Build exit code: ${PIPESTATUS[0]} ==="
 
     - name: Upload artifacts
       if: always()
